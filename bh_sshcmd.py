@@ -13,4 +13,4 @@ def ssh_command(ip, user, passwd, command):
         print ssh_session.recv(1024)
     return
 
-ssh_command('127.0.0.1', 'mjlee', 'mjlee', 'vol')
+ssh_command('127.0.0.1', 'mjlee', 'mjlee', 'ls -al')

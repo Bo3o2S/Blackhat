@@ -6,8 +6,8 @@ import sys
 host_key = paramiko.RSAKey(filename='/etc/ssh/ssh_host_rsa_key')
 
 class Server(paramiko.ServerInterface):
-    def _init_(self):
-        self.event = threading.Event()
+    # def _init_(self):
+    #     self.event = threading.Event()
     def check_channel_request(self, kind, chanid):
         if kind == 'session':
             return paramiko.OPEN_SUCCEEDED
@@ -47,7 +47,8 @@ try:
     chan.send("Welcome to bh_ssh")
     while True:
         try:
-            command = raw_input("Enter command: ").strip('\n')
+            command = raw_input\
+                ("Enter command: ").strip('\n')
             if command != 'exit':
                 chan.send(command)
                 print chan.recv(1024) + '\n'
