@@ -23,7 +23,7 @@ def response_handler(buffer):
 def request_handler(buffer):
     return buffer
 
-def hexdump(buffer):
+def hexdump(src, length=16):
     result = []
     digits = 4 if isinstance(src, unicode) else 2
 
