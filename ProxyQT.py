@@ -8,6 +8,7 @@ from PyQt4 import uic
 
 form_class = uic.loadUiType("proxy.ui")[0]
 
+
 class ProxyWindow(QWidget, form_class):
     def __init__(self):
         super(QWidget, self).__init__()
@@ -16,6 +17,7 @@ class ProxyWindow(QWidget, form_class):
         self.setWindowTitle("X-Proxy by Bo3o2S")
         self.connect(self.Start_Button, SIGNAL("clicked()"), self.Start_Proxy)
         self.ErrMsg = ""
+        self.proxy_thread = ""
 
     def setTextToDataEdit(self, str):
         self.Data_Edit.setText(str)
@@ -27,7 +29,7 @@ class ProxyWindow(QWidget, form_class):
 
 
         #return self.exec_()
-        #self.show()
+        #self.show()125.209.222.142
         #self.Data_Edit.show()
         #self.Data_Edit.exec_()
         #self.exec_()
@@ -40,6 +42,77 @@ class ProxyWindow(QWidget, form_class):
         QApplication.processEvents()
 
         #sys.exit(self.exec_())
+
+
+
+    def server_loop(self, local_host, local_port, remote_host, remote_port, receive_first):
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            server.bind((local_host, local_port))
+        except:
+            self.setTextToDataEdit("[ERR] Failed to Listen on %s : %d" % (local_host, local_port))
+            self.setTextToDataEditN("[ERR] Check for other listening socket or correct permisstions")
+
+        server.listen(10)
+
+        self.setTextToDataEdit("Listening on %s : %d" % (local_host, local_port))
+
+
+
+        while True:
+            if self.Stop_Button.isFlat() is True:
+                self.setTextToDataEditN("Server Stopped")
+                break
+
+            client_socket, addr = server.accept()
+
+            # print out the local connection information
+            self.setTextToDataEditN("[==>] Receive incomming connection from %s : %d" % (addr[0], addr[1]))
+
+            # start a thread to talk to the remote host
+
+            # self.proxy_thread = threading.Thread(target=self.proxy_handler,
+            #                                 args=(client_socket, remote_host, remote_port, receive_first))
+            # self.proxy_thread.start()
+            self.proxy_thread = Proxy_thread(client_socket, remote_host, remote_port, receive_first)
+            self.proxy_thread.start()
+
+    def Start_Proxy(self):
+        local_host = self.Local_Host_Edit.toPlainText()
+        local_port = int(self.Local_Port_Edit.toPlainText())
+        remote_host = self.Remote_Host_Edit.toPlainText()
+        remote_port = int(self.Remote_Port_Edit.toPlainText())
+
+        receive_first = self.RF_checkBox.checkState()
+
+        if(local_host is not None and local_port is not None
+           and remote_host is not None and remote_port is not None):
+            if receive_first is 2:
+                receive_first = True
+            else:
+                receive_first = False
+            # start server
+            self.server_loop(local_host, local_port, remote_host, remote_port, receive_first)
+        else:
+            if local_host is None:
+                self.setTextToDataEdit("local_host empty")
+            if local_port is None:
+                self.setTextToDataEdit("local_port empty")
+            if remote_host is None:
+                self.setTextToDataEdit("remote_host empty")
+            if remote_port is None:
+                self.setTextToDataEdit("remote_port empty")
+
+class Proxy_thread(QThread, ProxyWindow):
+    def __init__(self, client_socket, remote_host, remote_port, receive_first):
+        QThread.__init__(self)
+        super(ProxyWindow, self).__init__
+        self.client_socket = client_socket
+        self.remote_host = remote_host
+        self.remote_port = remote_port
+        self.receive_first = receive_first
+    def __del__(self):
+        self.wait()
 
     def receive_from(self, connection):
         buffer = ""
@@ -87,12 +160,12 @@ class ProxyWindow(QWidget, form_class):
 
     def proxy_handler(self, client_socket, remote_host, remote_port, receive_first):
         # connect to remote host
-        remote_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        remote_socket.connect((remote_host, remote_port))
+        self.remote_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.remote_socket.connect((remote_host, remote_port))
 
         # receive data from remote host if necesarry
         if receive_first:
-            remote_buffer = self.receive_from(remote_socket)
+            remote_buffer = self.receive_from(self.remote_socket)
             self.hexdump(remote_buffer)
 
         # send buffer to response handler
@@ -111,10 +184,10 @@ class ProxyWindow(QWidget, form_class):
 
                 local_buffer = self.request_handler(local_buffer)
 
-                remote_socket.send(local_buffer)
+                self.remote_socket.send(local_buffer)
 
 
-            remote_buffer = self.receive_from(remote_socket)
+            remote_buffer = self.receive_from(self.remote_socket)
 
             if len(remote_buffer):
 
@@ -128,66 +201,13 @@ class ProxyWindow(QWidget, form_class):
 
             if not len(local_buffer) or len(remote_buffer):
                 client_socket.close()
-                remote_socket.close()
+                self.remote_socket.close()
                 self.setTextToDataEditN("[END] No more data Closing Connetion!")
                 break
         return
 
-    def server_loop(self, local_host, local_port, remote_host, remote_port, receive_first):
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            server.bind((local_host, local_port))
-        except:
-            self.setTextToDataEdit("[ERR] Failed to Listen on %s : %d" % (local_host, local_port))
-            self.setTextToDataEditN("[ERR] Check for other listening socket or correct permisstions")
-
-        server.listen(10)
-
-        self.setTextToDataEdit("Listening on %s : %d" % (local_host, local_port))
-
-
-
-        while True:
-            if self.Stop_Button.isFlat() is True:
-                self.setTextToDataEditN("Server Stopped")
-                break
-
-            client_socket, addr = server.accept()
-
-            # print out the local connection information
-            self.setTextToDataEditN("[==>] Receive incomming connection from %s : %d" % (addr[0], addr[1]))
-
-            # start a thread to talk to the remote host
-            proxy_thread = threading.Thread(target=self.proxy_handler,
-                                            args=(client_socket, remote_host, remote_port, receive_first))
-            proxy_thread.start()
-    def Start_Proxy(self):
-        local_host = self.Local_Host_Edit.toPlainText()
-        local_port = int(self.Local_Port_Edit.toPlainText())
-        remote_host = self.Remote_Host_Edit.toPlainText()
-        remote_port = int(self.Remote_Port_Edit.toPlainText())
-
-        receive_first = self.RF_checkBox.checkState()
-
-        if(local_host is not None and local_port is not None
-           and remote_host is not None and remote_port is not None):
-            if receive_first is 2:
-                receive_first = True
-            else:
-                receive_first = False
-            # start server
-            self.server_loop(local_host, local_port, remote_host, remote_port, receive_first)
-        else:
-            if local_host is None:
-                self.setTextToDataEdit("local_host empty")
-            if local_port is None:
-                self.setTextToDataEdit("local_port empty")
-            if remote_host is None:
-                self.setTextToDataEdit("remote_host empty")
-            if remote_port is None:
-                self.setTextToDataEdit("remote_port empty")
-
-
+    def run(self):
+        self.proxy_handler(self.client_socket, self.remote_host, self.remote_port, self.receive_first)
 def main():
     app = QApplication(sys.argv)
     window = ProxyWindow()
