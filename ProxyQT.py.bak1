@@ -1,0 +1,76 @@
+import socket
+import sys
+import threading
+
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+from PyQt4 import uic
+
+
+
+class MainWindow(QDialog):
+    def __init__(self):
+        QDialog.__init__(self)
+        self.ui = uic.loadUi("proxy.ui")
+        self.ui.show()
+
+        self.connect(self.ui.Start_Button, SIGNAL("clicked()"), self.Start_Proxy)
+        self.ErrMsg = ""
+    def proxy_handler(client_socket, remote_host, remote_port, receive_first):
+        return
+    def server_loop(self, local_host, local_port, remote_host, remote_port, receive_first):
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            server.bind((local_host, local_port))
+        except:
+            print "[ERR] Failed to Listen on %s : %d" % (local_host, local_port)
+            print "[ERR] Check for other listening socket or correct permisstions"
+            sys.exit(0)
+
+            self.ui.Data_Edit.setText("Listening on %s : %d" % (local_host, local_port))
+
+        server.listen(10)
+
+        while True:
+            client_socket, addr = server.accept()
+
+            # print out the local connection information
+            print "[==>] Receive incomming connection from %s : %d" % (addr[0], addr[1])
+
+            # start a thread to talk to the remote host
+            proxy_thread = threading.Thread(target=self.proxy_handler,
+                                            args=(client_socket, remote_host, remote_port, receive_first))
+            proxy_thread.start()
+    def Start_Proxy(self):
+        local_host = self.ui.Local_Host_Edit.toPlainText()
+        local_port = self.ui.Local_Port_Edit.toPlainText()
+        remote_host = self.ui.Remote_Host_Edit.toPlainText()
+        remote_port = self.ui.Remote_Port_Edit.toPlainText()
+
+        receive_first = self.ui.RF_checkBox.checkState()
+        if(local_host is not None and local_port is not None
+           and remote_host is not None and remote_port is not None):
+            if "True" in receive_first:
+                receive_first = True
+            else:
+                receive_first = False
+            # start server
+            self.server_loop(local_host, local_port, remote_host, remote_port, receive_first)
+        else:
+            if local_host is None:
+                self.ui.Data_Edit.setText("local_host empty")
+            if local_port is None:
+                self.ui.Data_Edit.setText("local_port empty")
+            if remote_host is None:
+                self.ui.Data_Edit.setText("remote_host empty")
+            if remote_port is None:
+                self.ui.Data_Edit.setText("remote_port empty")
+
+def main():
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    sys.exit(app.exec_())
+
+
+
+main()
